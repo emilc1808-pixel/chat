@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 30px;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #5a6fd8;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .message-area {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message.welcome {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .message.echo {
+            background: #e2e3e5;
+            border-left: 4px solid #6c757d;
+        }
+
+        .message.broadcast {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+
+        .message.chat {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+
+        .message.user-event {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            font-style: italic;
+        }
+
+        .message-meta {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .sender {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .user-input {
+            display: grid;
+            grid-template-columns: 200px 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        @media (min-width: 480px) {
+            .stats {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+        }
+
+        .message {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 8px;
+            animation: fadeIn 0.3s ease-in;
+            font-size: 14px;
+        }
+
+        .message-meta {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+
+        /* Touch-freundliche Buttons am Ende */
+        .controls:last-of-type {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        @media (min-width: 600px) {
+            .controls:last-of-type {
+                flex-direction: row;
+                justify-content: space-between;
+            }
+            
+            .controls:last-of-type button {
+                flex: 1;
+                margin: 0 5px;
+            }
+            
+            .controls:last-of-type button:first-child,
+            .controls:last-of-type button:last-child {
+                margin-left: 0;
+                margin-right: 0;
+            }
+        }
+
+        /* Bessere Lesbarkeit auf kleinen Bildschirmen */
+        @media (max-width: 479px) {
+            .container {
+                padding: 10px;
+                margin: 5px;
+                border-radius: 10px;
+            }
+            
+            h1 {
+                font-size: 1.2rem;
+                margin-bottom: 15px;
+            }
+            
+            .message-area {
+                height: 250px;
+            }
+        }
+
+        /* Verhindere Zoom beim Fokus auf Inputs (iOS) */
+        @media screen and (max-width: 767px) {
+            input[type="text"] {
+                font-size: 16px; /* Verhindert Auto-Zoom auf iOS */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebSocket Client Demo</h1>
+        
+        <div id="status" class="status disconnected">
+            Nicht verbunden
+        </div>
+
+        <div class="stats">
+            <span>Verbundene Clients: <span id="clientCount">0</span></span>
+            <span>Nachrichten empfangen: <span id="messageCount">0</span></span>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="echo">Echo Test</button>
+            <button class="tab" data-tab="broadcast">Broadcast</button>
+            <button class="tab" data-tab="chat">Chat</button>
+        </div>
+
+        <div id="echo" class="tab-content active">
+            <div class="controls">
+                <input type="text" id="echoInput" placeholder="Nachricht für Echo-Test eingeben...">
+                <button onclick="sendEcho()" id="echoBtn" disabled>Echo senden</button>
+            </div>
+        </div>
+
+        <div id="broadcast" class="tab-content">
+            <div class="controls">
+                <input type="text" id="broadcastInput" placeholder="Broadcast-Nachricht eingeben...">
+                <button onclick="sendBroadcast()" id="broadcastBtn" disabled>Broadcast senden</button>
+            </div>
+        </div>
+
+        <div id="chat" class="tab-content">
+            <div class="user-input">
+                <input type="text" id="senderName" placeholder="Ihr Name" value="Benutzer">
+                <input type="text" id="chatInput" placeholder="Chat-Nachricht eingeben...">
+                <button onclick="sendChat()" id="chatBtn" disabled>Senden</button>
+            </div>
+        </div>
+
+        <div class="message-area" id="messages"></div>
+
+        <div class="controls">
+            <button onclick="connectWebSocket()" id="connectBtn">Verbinden</button>
+            <button onclick="disconnectWebSocket()" id="disconnectBtn" disabled>Trennen</button>
+            <button onclick="clearMessages()">Nachrichten löschen</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+        
+        // Tab-Funktionalität
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                // Tabs aktualisieren
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(targetTab).classList.add('active');
+            });
+        });
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            
+            ws = new WebSocket(`${protocol}//${host}`);
+            
+            ws.onopen = function(event) {
+                updateStatus('Verbunden', true);
+                updateButtons(true);
+                addMessage('system', 'WebSocket-Verbindung hergestellt');
+            };
+            
+            ws.onmessage = function(event) {
+                messageCount++;
+                document.getElementById('messageCount').textContent = messageCount;
+                
+                try {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                } catch (error) {
+                    addMessage('error', 'Fehler beim Verarbeiten der Nachricht: ' + event.data);
+                }
+            };
+            
+            ws.onclose = function(event) {
+                updateStatus('Verbindung getrennt', false);
+                updateButtons(false);
+                addMessage('system', 'WebSocket-Verbindung geschlossen');
+            };
+            
+            ws.onerror = function(error) {
+                addMessage('error', 'WebSocket-Fehler aufgetreten');
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+            }
+        }
+        
+        function handleMessage(data) {
+            switch(data.type) {
+                case 'welcome':
+                    addMessage('welcome', data.message, data);
+                    updateClientCount(data.clientsCount);
+                    break;
+                case 'echo-response':
+                    addMessage('echo', `${data.response}`, data);
+                    break;
+                case 'broadcast-message':
+                    addMessage('broadcast', data.message, data);
+                    break;
+                case 'chat-message':
+                    addMessage('chat', data.message, data);
+                    break;
+                case 'user-joined':
+                case 'user-left':
+                    addMessage('user-event', data.message, data);
+                    updateClientCount(data.clientsCount);
+                    break;
+                default:
+                    addMessage('system', JSON.stringify(data));
+            }
+        }
+        
+        function sendEcho() {
+            const input = document.getElementById('echoInput');
+            const message = input.value.trim();
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'echo',
+                    message: message
+                }));
+                input.value = '';
+                addMessage('sent', `Echo gesendet: ${message}`);
+            }
+        }
+        
+        function sendBroadcast() {
+            const input = document.getElementById('broadcastInput');
+            const message = input.value.trim();
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'broadcast',
+                    message: message,
+                    sender: 'Ich'
+                }));
+                input.value = '';
+            }
+        }
+        
+        function sendChat() {
+            const messageInput = document.getElementById('chatInput');
+            const senderInput = document.getElementById('senderName');
+            const message = messageInput.value.trim();
+            const sender = senderInput.value.trim() || 'Anonym';
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    message: message,
+                    sender: sender
+                }));
+                messageInput.value = '';
+            }
+        }
+        
+        function addMessage(type, message, data = null) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            
+            let content = '';
+            
+            if (data && data.timestamp) {
+                const time = new Date(data.timestamp).toLocaleTimeString();
+                content += `<div class="message-meta">${time}`;
+                if (data.sender) {
+                    content += ` - <span class="sender">${data.sender}</span>`;
+                }
+                content += `</div>`;
+            }
+            
+            content += `<div>${message}</div>`;
+            messageDiv.innerHTML = content;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateStatus(text, connected) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = text;
+            statusDiv.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        }
+        
+        function updateButtons(connected) {
+            document.getElementById('connectBtn').disabled = connected;
+            document.getElementById('disconnectBtn').disabled = !connected;
+            document.getElementById('echoBtn').disabled = !connected;
+            document.getElementById('broadcastBtn').disabled = !connected;
+            document.getElementById('chatBtn').disabled = !connected;
+        }
+        
+        function updateClientCount(count) {
+            document.getElementById('clientCount').textContent = count || 0;
+        }
+        
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+            messageCount = 0;
+            document.getElementById('messageCount').textContent = messageCount;
+        }
+        
+        // Enter-Taste für Eingabefelder
+        document.getElementById('echoInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendEcho();
+        });
+        
+        document.getElementById('broadcastInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendBroadcast();
+        });
+        
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') sendChat();
+        });
+        
+        // Automatisch verbinden beim Laden der Seite
+        window.addEventListener('load', function() {
+            setTimeout(connectWebSocket, 1000);
+        });
+    </script>
+</body>
+</html>
