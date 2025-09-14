@@ -1,12 +1,13 @@
 {
-  "name": "chat-server",
+  "name": "chat",
   "version": "1.0.0",
+  "description": "WebSocket Chat Demo",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "ws": "^8.18.3"
+    "express": "^4.19.0",
+    "ws": "^8.16.0"
   }
 }
